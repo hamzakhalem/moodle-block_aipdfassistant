@@ -1,0 +1,117 @@
+{{!
+    This file is part of Moodle - http://moodle.org/
+
+    Moodle is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    Moodle is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+}}
+{{!
+    @template block_aipdfassistant/chat
+
+    Chat interface of the AI PDF Assistant block. The behaviour is added by the
+    block_aipdfassistant/chat AMD module.
+
+    Classes required for JS:
+    * bpa
+
+    Data attributes required for JS:
+    * data-region, data-action
+
+    Example context (json):
+    {
+        "uniqid": "bpa-7",
+        "title": "Study assistant",
+        "maxmb": "20",
+        "canspeak": true,
+        "languages": [
+            {"code": "ar", "name": "العربية", "selected": true},
+            {"code": "fr", "name": "Français", "selected": false},
+            {"code": "en", "name": "English", "selected": false}
+        ]
+    }
+}}
+<div class="bpa" id="{{uniqid}}" data-region="bpa" data-state="empty">
+    <div class="bpa-shell">
+        <header class="bpa-bar">
+            <div class="bpa-brand">
+                <span class="bpa-mark" data-icon="spark"></span>
+                <span class="bpa-title">{{title}}</span>
+            </div>
+            <button type="button" class="bpa-link" data-action="picker" aria-expanded="false">
+                <span data-icon="file"></span><span class="bpa-link-text">{{#str}}js_pickDocument, block_aipdfassistant{{/str}}</span><span data-icon="chevron" class="bpa-link-chevron"></span>
+            </button>
+            <div class="bpa-bar-actions">
+                <button type="button" class="bpa-iconbtn" data-action="clear" title="{{#str}}js_clear, block_aipdfassistant{{/str}}" aria-label="{{#str}}js_clear, block_aipdfassistant{{/str}}"><span data-icon="clear"></span></button>
+                <button type="button" class="bpa-iconbtn" data-action="expand" title="{{#str}}js_expand, block_aipdfassistant{{/str}}" aria-label="{{#str}}js_expand, block_aipdfassistant{{/str}}" aria-expanded="false"><span data-icon="expand" data-region="expandicon"></span></button>
+            </div>
+        </header>
+        <div class="bpa-picker" data-region="picker" hidden></div>
+
+        <section class="bpa-doc" data-region="docarea">
+            <div class="bpa-drop" data-region="dropzone" role="button" tabindex="0" aria-label="{{#str}}js_attach, block_aipdfassistant{{/str}}">
+                <span class="bpa-sheet" aria-hidden="true"><span class="bpa-sheet-tag">PDF</span></span>
+                <span class="bpa-drop-text">
+                    <strong>{{#str}}js_dropTitle, block_aipdfassistant{{/str}}</strong>
+                    <small>{{#str}}js_dropHint, block_aipdfassistant, {{maxmb}}{{/str}}</small>
+                </span>
+                <span class="bpa-progress" data-region="progress" hidden><span class="bpa-progress-bar" data-region="progressbar"></span></span>
+            </div>
+            <div class="bpa-docchip" data-region="docchip" hidden>
+                <span class="bpa-sheet" aria-hidden="true"><span class="bpa-sheet-tag">PDF</span></span>
+                <span class="bpa-docchip-text">
+                    <strong data-region="docname" dir="auto"></strong>
+                    <small data-region="docmeta"></small>
+                </span>
+                <button type="button" class="bpa-iconbtn" data-action="removedoc" title="{{#str}}js_removeDoc, block_aipdfassistant{{/str}}" aria-label="{{#str}}js_removeDoc, block_aipdfassistant{{/str}}"><span data-icon="x"></span></button>
+            </div>
+            <p class="bpa-note" data-region="docnote" role="status" hidden></p>
+        </section>
+
+        <div class="bpa-toolswrap" data-region="toolswrap">
+            <button type="button" class="bpa-tools-nav bpa-tools-nav--prev" data-action="toolsprev" tabindex="-1" aria-hidden="true" hidden><span data-icon="chevron"></span></button>
+            <div class="bpa-tools" data-region="tools" role="toolbar" aria-label="{{title}}">
+            <button type="button" class="bpa-chip" data-needsdoc data-action="summarize"><span data-icon="list"></span><span>{{#str}}js_summarize, block_aipdfassistant{{/str}}</span></button>
+                <button type="button" class="bpa-chip" data-needsdoc data-action="explain"><span data-icon="bulb"></span><span>{{#str}}js_explain, block_aipdfassistant{{/str}}</span></button>
+                <span class="bpa-chip bpa-chip--split" data-needsdoc>
+                    <button type="button" class="bpa-chip-main" data-action="translate"><span data-icon="globe"></span><span>{{#str}}js_translate, block_aipdfassistant{{/str}}</span></button>
+                    <label class="sr-only" for="{{uniqid}}-lang">{{#str}}js_translateTo, block_aipdfassistant{{/str}}</label>
+                    <select id="{{uniqid}}-lang" class="bpa-select" data-region="lang">
+                        {{#languages}}<option value="{{code}}"{{#selected}} selected{{/selected}}>{{name}}</option>{{/languages}}
+                    </select>
+                </span>
+                <button type="button" class="bpa-chip" data-needsdoc data-action="quiz"><span data-icon="quiz"></span><span>{{#str}}js_quiz, block_aipdfassistant{{/str}}</span></button>
+                <button type="button" class="bpa-chip" data-needsdoc data-action="filename"><span data-icon="tag"></span><span>{{#str}}js_filename, block_aipdfassistant{{/str}}</span></button>
+                {{#canspeak}}
+                <button type="button" class="bpa-chip" data-action="speak"><span data-icon="volume"></span><span>{{#str}}js_speak, block_aipdfassistant{{/str}}</span></button>
+                {{/canspeak}}
+            </div>
+            <button type="button" class="bpa-tools-nav bpa-tools-nav--next" data-action="toolsnext" tabindex="-1" aria-hidden="true" hidden><span data-icon="chevron"></span></button>
+        </div>
+
+        <div class="bpa-log" data-region="log" role="log" aria-live="polite" aria-relevant="additions">
+            <div class="bpa-empty" data-region="empty">
+                <div class="bpa-stack" aria-hidden="true"><span></span><span></span><span></span></div>
+                <h4>{{#str}}js_emptyTitle, block_aipdfassistant{{/str}}</h4>
+                <p>{{#str}}js_emptyHint, block_aipdfassistant{{/str}}</p>
+            </div>
+        </div>
+
+        <form class="bpa-composer" data-region="composer" autocomplete="off">
+            <button type="button" class="bpa-iconbtn" data-action="attach" title="{{#str}}js_attach, block_aipdfassistant{{/str}}" aria-label="{{#str}}js_attach, block_aipdfassistant{{/str}}"><span data-icon="paperclip"></span></button>
+            <label class="sr-only" for="{{uniqid}}-input">{{#str}}js_placeholder, block_aipdfassistant{{/str}}</label>
+            <textarea id="{{uniqid}}-input" class="bpa-input" data-region="input" rows="1" dir="auto" maxlength="4000" placeholder="{{#str}}js_placeholderNoDoc, block_aipdfassistant{{/str}}"></textarea>
+            <button type="button" class="bpa-iconbtn" data-action="mic" data-region="mic" hidden title="{{#str}}js_mic, block_aipdfassistant{{/str}}" aria-label="{{#str}}js_mic, block_aipdfassistant{{/str}}" aria-pressed="false"><span data-icon="mic"></span></button>
+            <button type="submit" class="bpa-send" title="{{#str}}js_send, block_aipdfassistant{{/str}}" aria-label="{{#str}}js_send, block_aipdfassistant{{/str}}"><span data-icon="send"></span></button>
+        </form>
+        <input type="file" class="bpa-file" data-region="file" accept="application/pdf,.pdf,.docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document" hidden tabindex="-1">
+    </div>
+</div>
