@@ -151,6 +151,7 @@ class send_message extends external_api {
                 $req = new request($intent, $text);
                 $req->history = $cleanhistory;
                 $req->uilang = self::ui_lang();
+                $req->userid = $userid;
                 if ($doc) {
                     $req->docname = (string) $doc->filename;
                     $req->doctext = (string) $doc->textcontent;

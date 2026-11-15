@@ -38,8 +38,29 @@ final class native_parser {
     /** Delimiter characters in PDF syntax. */
     private const DELIM = '()<>[]{}/%';
 
+    /** Largest single decompressed stream accepted, in bytes (protects against decompression bombs). */
+    const MAX_STREAM_BYTES = 33554432;
+
+    /** Largest total of decompressed data accepted for one file, in bytes. */
+    const MAX_TOTAL_BYTES = 134217728;
+
+    /** Default time budget for one extraction, in seconds. */
+    const DEFAULT_TIMEOUT = 30;
+
     /** @var string Raw file bytes. */
     private $data = '';
+
+    /** @var int Time budget in seconds. */
+    private $timeout;
+
+    /** @var int Total decompressed bytes allowed. */
+    private $maxtotal;
+
+    /** @var int Decompressed bytes produced so far. */
+    private $used = 0;
+
+    /** @var float Time (microtime) after which the extraction is abandoned. */
+    private $deadline = 0.0;
 
     /** @var array Object id => [dictionary string, raw stream bytes or null]. */
     private $objects = [];
@@ -51,13 +72,39 @@ final class native_parser {
     private $decoded = [];
 
     /**
+     * Constructor.
+     *
+     * @param int $timeout Seconds the extraction may take (0 = default).
+     * @param int $maxtotal Total decompressed bytes allowed (0 = default).
+     */
+    public function __construct(int $timeout = 0, int $maxtotal = 0) {
+        $this->timeout = $timeout > 0 ? $timeout : self::DEFAULT_TIMEOUT;
+        $this->maxtotal = $maxtotal > 0 ? min($maxtotal, self::MAX_TOTAL_BYTES * 8) : self::MAX_TOTAL_BYTES;
+    }
+
+    /**
+     * Abandon the extraction when the time budget is spent.
+     *
+     * @return void
+     * @throws exception With code "timeout".
+     */
+    private function check_time(): void {
+        if (microtime(true) > $this->deadline) {
+            throw new exception('timeout');
+        }
+    }
+
+    /**
      * Extract text from PDF bytes.
      *
      * @param string $data File contents.
      * @return array [string $text, int $pages]
-     * @throws exception With code "encrypted" for password protected files.
+     * @throws exception With code "encrypted" for password protected files, "toolarge" when the
+     *                   decompressed data exceeds the limits and "timeout" when the time budget is spent.
      */
     public function extract(string $data): array {
+        $this->used = 0;
+        $this->deadline = microtime(true) + $this->timeout;
         $this->data = $data;
         $this->objects = [];
         $this->fontcache = [];
@@ -66,6 +113,7 @@ final class native_parser {
         $pages = $this->pages();
         $texts = [];
         foreach ($pages as $page) {
+            $this->check_time();
             $texts[] = $this->run_content($this->page_contents($page[1]), $page[2], 0);
         }
         return [implode("\n\n", $texts), count($pages)];
@@ -87,6 +135,7 @@ final class native_parser {
         }
         $length = strlen($this->data);
         foreach ($matches as $match) {
+            $this->check_time();
             $id = (int) $match[1][0];
             $start = $match[0][1] + strlen($match[0][0]);
             $end = strpos($this->data, 'endobj', $start);
@@ -167,6 +216,7 @@ final class native_parser {
      * @return string|null
      */
     private function decode_stream(string $dict, string $raw): ?string {
+        $this->check_time();
         $filters = [];
         if (preg_match('~/Filter\s*(\[[^\]]*\]|/[A-Za-z0-9]+)~', $dict, $fm)) {
             preg_match_all('~/([A-Za-z0-9]+)~', $fm[1], $names);
@@ -196,26 +246,88 @@ final class native_parser {
     }
 
     /**
-     * Inflate zlib or raw deflate data.
+     * Inflate zlib or raw deflate data, never producing more than the configured limits.
+     *
+     * The data is fed to the decompressor in small slices and the output is measured after each
+     * slice, so a "decompression bomb" is stopped long before it can exhaust the memory.
+     *
+     * @param string $raw Compressed bytes.
+     * @return string|null Null when the data cannot be decoded.
+     * @throws exception With code "toolarge" when a limit is exceeded.
+     */
+    private function inflate(string $raw): ?string {
+        if (!function_exists('inflate_init')) {
+            return $this->inflate_legacy($raw);
+        }
+        $attempts = [[ZLIB_ENCODING_DEFLATE, $raw], [ZLIB_ENCODING_RAW, $raw]];
+        if (strlen($raw) > 2) {
+            $attempts[] = [ZLIB_ENCODING_RAW, substr($raw, 2)];
+        }
+        foreach ($attempts as [$encoding, $input]) {
+            $out = $this->inflate_capped($input, $encoding);
+            if ($out !== null) {
+                return $out;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Inflate with one encoding, slice by slice.
+     *
+     * @param string $input Compressed bytes.
+     * @param int $encoding ZLIB_ENCODING_* constant.
+     * @return string|null Decoded bytes (possibly partial for damaged streams) or null.
+     * @throws exception With code "toolarge".
+     */
+    private function inflate_capped(string $input, int $encoding): ?string {
+        $context = @inflate_init($encoding);
+        if ($context === false) {
+            return null;
+        }
+        $length = strlen($input);
+        $out = '';
+        for ($offset = 0; $offset < $length; $offset += 4096) {
+            $chunk = @inflate_add($context, (string) substr($input, $offset, 4096), ZLIB_SYNC_FLUSH);
+            if ($chunk === false) {
+                break;
+            }
+            $out .= $chunk;
+            if (strlen($out) > self::MAX_STREAM_BYTES || $this->used + strlen($out) > $this->maxtotal) {
+                throw new exception('toolarge', 'Decompressed PDF data exceeds the allowed size.');
+            }
+            if (inflate_get_status($context) === ZLIB_STREAM_END) {
+                break;
+            }
+            $this->check_time();
+        }
+        if ($out === '') {
+            return null;
+        }
+        $this->used += strlen($out);
+        return $out;
+    }
+
+    /**
+     * Fallback when the zlib streaming functions are missing: decode with a hard output limit.
      *
      * @param string $raw Compressed bytes.
      * @return string|null
      */
-    private function inflate(string $raw): ?string {
-        $out = @gzuncompress($raw);
+    private function inflate_legacy(string $raw): ?string {
+        $limit = min(self::MAX_STREAM_BYTES, max(0, $this->maxtotal - $this->used));
+        $out = @gzuncompress($raw, $limit);
         if ($out === false) {
-            $out = @gzinflate($raw);
+            $out = @gzinflate($raw, $limit);
         }
         if ($out === false && strlen($raw) > 2) {
-            $out = @gzinflate(substr($raw, 2));
+            $out = @gzinflate(substr($raw, 2), $limit);
         }
-        if ($out === false && function_exists('inflate_init')) {
-            $context = @inflate_init(ZLIB_ENCODING_DEFLATE);
-            if ($context !== false) {
-                $out = @inflate_add($context, $raw, ZLIB_FINISH);
-            }
+        if ($out === false) {
+            return null;
         }
-        return $out === false ? null : $out;
+        $this->used += strlen($out);
+        return $out;
     }
 
     /**
@@ -588,7 +700,11 @@ final class native_parser {
             }
         };
         $operands = [];
+        $ticks = 0;
         foreach ($this->tokenize($content) as $token) {
+            if ((++$ticks & 4095) === 0) {
+                $this->check_time();
+            }
             if ($token['t'] !== 'op') {
                 $operands[] = $token;
                 continue;

@@ -76,7 +76,11 @@ class document_service {
                 return $this->repository->get_for_user($id, $userid);
             }
         }
-        $reader = new document_reader($this->config->string('pdftotextpath'));
+        $reader = new document_reader(
+            $this->config->string('pdftotextpath'),
+            max(1, $this->config->int('extracttimeout')),
+            max(1, $this->config->int('maxdecompressedmb')) * 1048576
+        );
         $extraction = $reader->read($path, $this->config->int('maxdocchars'));
         $id = $this->repository->create($userid, $courseid, $filename, $size, $hash, $extraction->text, $extraction->pages,
             $source, $extraction->extractor, $extraction->lowtext);

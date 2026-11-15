@@ -106,7 +106,7 @@ final class assistant {
 
         if ($key !== null && $this->result->text !== '') {
             $this->cache->set($key, json_encode(['text' => $this->result->text, 'notice' => $this->result->notice],
-                JSON_UNESCAPED_UNICODE), $action);
+                JSON_UNESCAPED_UNICODE), $action, (int) $req->userid);
         }
         return $this->result;
     }
@@ -124,7 +124,7 @@ final class assistant {
             return null;
         }
         return sha1(implode('|', [
-            prompt_builder::VERSION, $req->dochash, $action, $this->effective_language($req), $message,
+            prompt_builder::VERSION, (int) $req->userid, $req->dochash, $action, $this->effective_language($req), $message,
             $this->provider->name(), $this->config->string('responselang'), $req->uilang,
             sha1($this->config->string('systemextra')),
         ]));

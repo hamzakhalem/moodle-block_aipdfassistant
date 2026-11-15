@@ -35,6 +35,8 @@ if ($ADMIN->fulltree) {
         'test' => (new moodle_url('/blocks/aipdfassistant/admin_test.php'))->out(false),
         'report' => (new moodle_url('/blocks/aipdfassistant/report.php'))->out(false),
     ];
+    $settings->add(new admin_setting_heading("$plugin/gettingstarted", $str('settings_gettingstarted'),
+        $str('settings_gettingstarted_desc')));
     $settings->add(new admin_setting_heading("$plugin/tools", $str('settings_tools'), $str('link_tools_desc', $tools)));
 
     // Text provider.
@@ -92,6 +94,10 @@ if ($ADMIN->fulltree) {
         $str('setting_maxdocchars_desc'), '600000', PARAM_INT, 8));
     $settings->add(new admin_setting_configtext("$plugin/pdftotextpath", $str('setting_pdftotextpath'),
         $str('setting_pdftotextpath_desc'), 'pdftotext', PARAM_RAW_TRIMMED));
+    $settings->add(new admin_setting_configtext("$plugin/extracttimeout", $str('setting_extracttimeout'),
+        $str('setting_extracttimeout_desc'), '30', PARAM_INT, 4));
+    $settings->add(new admin_setting_configtext("$plugin/maxdecompressedmb", $str('setting_maxdecompressedmb'),
+        $str('setting_maxdecompressedmb_desc'), '128', PARAM_INT, 5));
     $settings->add(new admin_setting_configtext("$plugin/retentiondays", $str('setting_retentiondays'),
         $str('setting_retentiondays_desc'), '30', PARAM_INT, 4));
     $settings->add(new admin_setting_configcheckbox("$plugin/allowcoursepdfs", $str('setting_allowcoursepdfs'),

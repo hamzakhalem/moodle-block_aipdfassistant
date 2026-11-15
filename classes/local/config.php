@@ -47,6 +47,8 @@ final class config {
         'maxfilesize' => 20,
         'maxdocchars' => 600000,
         'pdftotextpath' => 'pdftotext',
+        'extracttimeout' => 30,
+        'maxdecompressedmb' => 128,
         'retentiondays' => 30,
         'responselang' => 'auto',
         'systemextra' => '',

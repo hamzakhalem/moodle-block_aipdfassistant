@@ -20,7 +20,8 @@
  * @copyright  2026 AI PDF Assistant contributors
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
-define(['block_aipdfassistant/api', 'block_aipdfassistant/markdown', 'block_aipdfassistant/icons'], function(Api, Markdown, Icons) {
+define(['block_aipdfassistant/api', 'block_aipdfassistant/markdown', 'block_aipdfassistant/icons', 'core/templates'],
+        function(Api, Markdown, Icons, Templates) {
     'use strict';
 
     const NEEDS_DOC = ['summarize', 'explain', 'translate', 'quiz', 'filename'];
@@ -399,7 +400,7 @@ define(['block_aipdfassistant/api', 'block_aipdfassistant/markdown', 'block_aipd
                 const sheet = chip.querySelector('.bpa-sheet');
                 sheet.dataset.type = ext;
                 sheet.querySelector('.bpa-sheet-tag').textContent = ext.toUpperCase().slice(0, 4);
-                this.region('docname').textContent = doc.name;
+                this.renderDocName(this.region('docname'), doc.name);
                 const pages = doc.pages === 1 ? this.t('page') : this.t('pages', doc.pages);
                 this.region('docmeta').textContent = pages;
                 this.note(doc.lowtext ? this.t('lowtext') : '', false);
@@ -417,6 +418,21 @@ define(['block_aipdfassistant/api', 'block_aipdfassistant/markdown', 'block_aipd
                 this.pending = null;
                 this.send(pending.text, pending.action);
             }
+        }
+
+        renderDocName(node, name) {
+            // Keep the extension in its own left-to-right run so Arabic names do not show ".pdf" in the wrong place.
+            node.textContent = '';
+            const match = /^(.*?)(\.[A-Za-z0-9]{1,5})$/.exec(name);
+            if (!match) {
+                node.textContent = name;
+                return;
+            }
+            node.appendChild(document.createTextNode(match[1]));
+            const ext = document.createElement('bdi');
+            ext.dir = 'ltr';
+            ext.textContent = match[2];
+            node.appendChild(ext);
         }
 
         removeDoc() {
@@ -507,12 +523,10 @@ define(['block_aipdfassistant/api', 'block_aipdfassistant/markdown', 'block_aipd
                 return;
             }
             picker.hidden = false;
-            picker.innerHTML = '<p class="bpa-picker-empty">' + esc(this.t('loading')) + '</p>';
             this.root.querySelector('[data-action="picker"]').setAttribute('aria-expanded', 'true');
-            Api.listDocuments(this.cfg.contextid).then((data) => this.renderPicker(data))
-                .catch(() => {
-                    picker.innerHTML = '<p class="bpa-picker-empty">' + esc(this.t('errorGeneric')) + '</p>';
-                });
+            this.renderPicker({loading: true});
+            Api.listDocuments(this.cfg.contextid).then((data) => this.renderPicker(this.pickerContext(data)))
+                .catch(() => this.renderPicker({error: true}));
         }
 
         hidePicker() {
@@ -520,35 +534,43 @@ define(['block_aipdfassistant/api', 'block_aipdfassistant/markdown', 'block_aipd
             this.root.querySelector('[data-action="picker"]').setAttribute('aria-expanded', 'false');
         }
 
-        renderPicker(data) {
+        /**
+         * Template context of the document picker.
+         *
+         * @param {Object} data Response of the list_documents service.
+         * @return {Object}
+         */
+        pickerContext(data) {
+            const recent = (data.recent || []).map((doc) => ({
+                id: doc.id, name: doc.name, pages: doc.pages, single: doc.pages === 1
+            }));
+            const course = (this.cfg.allowcourse ? (data.coursepdfs || []) : []).map((file) => ({
+                cmid: file.cmid, name: file.name, meta: file.section + ' \u00b7 ' + formatSize(file.filesize)
+            }));
+            return {
+                empty: !recent.length && !course.length,
+                hasrecent: recent.length > 0,
+                recent: recent,
+                hascourse: course.length > 0,
+                course: course
+            };
+        }
+
+        /**
+         * Render the picker with the block_aipdfassistant/picker Mustache template.
+         *
+         * @param {Object} context Template context.
+         * @return {Promise}
+         */
+        renderPicker(context) {
             const picker = this.region('picker');
-            let html = '';
-            const recent = data.recent || [];
-            const course = this.cfg.allowcourse ? (data.coursepdfs || []) : [];
-            if (recent.length) {
-                html += '<h5>' + esc(this.t('recent')) + '</h5><ul>';
-                recent.forEach((doc) => {
-                    html += '<li><button type="button" class="bpa-item" data-docid="' + doc.id + '">' +
-                        '<span class="bpa-item-icon">' + Icons.file + '</span><span class="bpa-item-text">' +
-                        '<strong dir="auto">' + esc(doc.name) + '</strong><small>' +
-                        esc(doc.pages === 1 ? this.t('page') : this.t('pages', doc.pages)) + '</small></span></button></li>';
-                });
-                html += '</ul>';
-            }
-            if (course.length) {
-                html += '<h5>' + esc(this.t('courseFiles')) + '</h5><ul>';
-                course.forEach((file) => {
-                    html += '<li><button type="button" class="bpa-item" data-cmid="' + file.cmid + '">' +
-                        '<span class="bpa-item-icon">' + Icons.file + '</span><span class="bpa-item-text">' +
-                        '<strong dir="auto">' + esc(file.name) + '</strong><small dir="auto">' +
-                        esc(file.section + ' · ' + formatSize(file.filesize)) + '</small></span></button></li>';
-                });
-                html += '</ul>';
-            }
-            if (!html) {
-                html = '<p class="bpa-picker-empty">' + esc(this.t('noDocs')) + '</p>';
-            }
-            picker.innerHTML = html;
+            return Templates.renderForPromise('block_aipdfassistant/picker', context).then(({html, js}) => {
+                Templates.replaceNodeContents(picker, html, js);
+                this.hydrateIcons(picker);
+                return picker;
+            }).catch(() => {
+                picker.textContent = this.t('errorGeneric');
+            });
         }
 
         useRecent(id) {

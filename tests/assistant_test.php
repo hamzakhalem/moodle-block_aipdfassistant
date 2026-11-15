@@ -110,6 +110,22 @@ final class assistant_test extends \basic_testcase {
     }
 
     /**
+     * Saved answers belong to one user: another user's identical request is not served from them.
+     */
+    public function test_cached_answers_are_per_user(): void {
+        $provider = new counting_provider();
+        $assistant = $this->make($provider);
+        $mine = $this->request('', 'explain');
+        $mine->userid = 11;
+        $other = $this->request('', 'explain');
+        $other->userid = 12;
+        $this->assertFalse($assistant->handle($mine)->cached);
+        $this->assertTrue($assistant->handle($mine)->cached);
+        $this->assertFalse($assistant->handle($other)->cached);
+        $this->assertSame(2, $provider->calls);
+    }
+
+    /**
      * Long messages are never cached.
      */
     public function test_free_questions_are_not_cached(): void {

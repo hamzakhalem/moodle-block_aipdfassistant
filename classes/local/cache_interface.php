@@ -39,7 +39,8 @@ interface cache_interface {
      * @param string $key 40 character key.
      * @param string $value Value.
      * @param string $action Action name (for reporting).
+     * @param int $userid User who owns the entry (for privacy export and deletion).
      * @return void
      */
-    public function set(string $key, string $value, string $action = ''): void;
+    public function set(string $key, string $value, string $action = '', int $userid = 0): void;
 }

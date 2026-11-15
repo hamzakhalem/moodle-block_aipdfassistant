@@ -44,6 +44,10 @@ def build(lang, out):
     for m in mods:
         scripts += "<script>window.__mod='block_aipdfassistant/%s';</script>\n<script>%s</script>\n" % (m, open(ROOT + '/amd/src/%s.js' % m, encoding='utf-8').read())
     cfg = {'uniqid':'bpa-7','contextid':55,'courseid':2,'maxbytes':20*1048576,'maxmb':'20','uploadurl':'/blocks/aipdfassistant/upload.php','canspeak':True,'browsertts':False,'gender':'female','allowcourse':True,'sesskey':'abc123','lang':lang,'strings':js_strings(idx)}
+    tplp = open(ROOT + '/templates/picker.mustache', encoding='utf-8').read()
+    tplp = re.sub(r'\{\{!.*?\}\}', '', tplp, flags=re.S)
+    tplpicker = json.dumps(tplp, ensure_ascii=False)
+    strs = json.dumps({k: S[k][idx].replace('{$a}', '%a%') for k in S if k.startswith('js_')}, ensure_ascii=False)
     d = 'rtl' if lang == 'ar' else 'ltr'
     page = f'''<!doctype html><html lang="{lang}" dir="{d}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>harness</title>
@@ -68,6 +72,50 @@ window.define = function(deps, factory) {{
 // Mock ajax: scenario handlers installed by tests on window.__handlers
 window.__calls = [];
 window.__handlers = {{}};
+window.__reg['core/templates'] = (function() {{
+  const TPL = {tplpicker};
+  const STR = {strs};
+  function lookup(stack, name) {{
+    for (let i = stack.length - 1; i >= 0; i--) {{
+      const c = stack[i];
+      if (c && typeof c === 'object' && name in c) {{ return c[name]; }}
+    }}
+    return undefined;
+  }}
+  const esc = (v) => String(v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  function render(tpl, stack) {{
+    let out = '', pos = 0;
+    const re = /\{{\{{([#^/]?)\s*([\w.]+)([^}}]*)\}}\}}/g;
+    let m;
+    while ((m = re.exec(tpl)) !== null) {{
+      out += tpl.slice(pos, m.index);
+      pos = re.lastIndex;
+      const kind = m[1], name = m[2];
+      if (!kind) {{ const v = lookup(stack, name); out += v === undefined ? '' : esc(v); continue; }}
+      // find the matching closing tag, honouring nesting of the same name
+      let depth = 1, j = pos; const re2 = new RegExp('\\{{\\{{([#^/])\\s*' + name + '[^}}]*\\}}\\}}', 'g'); re2.lastIndex = pos; let n;
+      while ((n = re2.exec(tpl)) !== null) {{ depth += n[1] === '/' ? -1 : 1; if (depth === 0) {{ j = n.index; pos = re2.lastIndex; break; }} }}
+      const inner = tpl.slice(m.index + m[0].length, j);
+      re.lastIndex = pos;
+      if (name === 'str') {{
+        const parts = render(inner, stack).split(',').map((x) => x.trim());
+        let text = STR[parts[0]] || parts[0];
+        if (parts.length > 2) {{ text = text.replace('%a%', parts[2]); }}
+        out += text; continue;
+      }}
+      const v = lookup(stack, name);
+      if (kind === '#') {{
+        if (Array.isArray(v)) {{ v.forEach((item) => {{ out += render(inner, stack.concat([item])); }}); }}
+        else if (v) {{ out += render(inner, stack.concat([typeof v === 'object' ? v : {{}}])); }}
+      }} else if (!v || (Array.isArray(v) && !v.length)) {{ out += render(inner, stack); }}
+    }}
+    return out + tpl.slice(pos);
+  }}
+  return {{
+    renderForPromise: function(name, ctx) {{ window.__renders = (window.__renders || 0) + 1; return Promise.resolve({{html: render(TPL, [ctx]), js: ''}}); }},
+    replaceNodeContents: function(node, html) {{ node.innerHTML = html; }}
+  }};
+}})();
 window.__reg['core/ajax'] = {{ call: function(reqs) {{
   return reqs.map(function(r) {{
     window.__calls.push({{name: r.methodname, args: JSON.parse(JSON.stringify(r.args))}});

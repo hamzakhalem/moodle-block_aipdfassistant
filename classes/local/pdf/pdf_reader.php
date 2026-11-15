@@ -34,15 +34,26 @@ final class pdf_reader {
     /** @var bool Whether the PHP parser may be used. */
     private $allownative;
 
+    /** @var int Seconds one extraction may take. */
+    private $timeout;
+
+    /** @var int Largest amount of text or decompressed data accepted, in bytes. */
+    private $maxbytes;
+
     /**
      * Constructor.
      *
      * @param string $pdftotext Binary path or name; empty to disable.
      * @param bool $allownative Allow the PHP fallback parser.
+     * @param int $timeout Seconds one extraction may take (the pdftotext run and the PHP parser share it).
+     * @param int $maxbytes Largest amount of extracted text or decompressed data accepted, in bytes.
      */
-    public function __construct(string $pdftotext = 'pdftotext', bool $allownative = true) {
+    public function __construct(string $pdftotext = 'pdftotext', bool $allownative = true,
+            int $timeout = native_parser::DEFAULT_TIMEOUT, int $maxbytes = native_parser::MAX_TOTAL_BYTES) {
         $this->pdftotext = trim($pdftotext);
         $this->allownative = $allownative;
+        $this->timeout = max(1, $timeout);
+        $this->maxbytes = max(1048576, $maxbytes);
     }
 
     /**
@@ -64,19 +75,28 @@ final class pdf_reader {
 
         $best = null;
         $encrypted = false;
+        $failure = '';
+        $deadline = microtime(true) + $this->timeout;
         if ($this->pdftotext !== '') {
             try {
-                $best = $this->run_pdftotext($path);
+                $best = $this->run_pdftotext($path, $deadline);
             } catch (exception $e) {
                 if ($e->errorcode === 'encrypted') {
                     $encrypted = true;
+                } else if ($e->errorcode === 'timeout' || $e->errorcode === 'toolarge') {
+                    // A file that exhausts the limits is refused instead of being retried with the slower parser.
+                    throw $e;
                 }
             }
         }
         if (($best === null || self::nonspace($best->text) < 20) && $this->allownative) {
             try {
+                $remaining = (int) floor($deadline - microtime(true));
+                if ($remaining < 1) {
+                    throw new exception('timeout');
+                }
                 $data = (string) file_get_contents($path);
-                $native = new native_parser();
+                $native = new native_parser($remaining, $this->maxbytes);
                 [$text, $pages] = $native->extract($data);
                 $candidate = new extraction(self::clean($text), $pages, 'native');
                 if ($best === null || self::nonspace($candidate->text) > self::nonspace($best->text)) {
@@ -85,11 +105,13 @@ final class pdf_reader {
             } catch (exception $e) {
                 if ($e->errorcode === 'encrypted') {
                     $encrypted = true;
+                } else if ($e->errorcode === 'timeout' || $e->errorcode === 'toolarge') {
+                    $failure = $e->errorcode;
                 }
             }
         }
         if ($best === null || self::nonspace($best->text) < 1) {
-            throw new exception($encrypted ? 'encrypted' : 'noextractabletext');
+            throw new exception($encrypted ? 'encrypted' : ($failure !== '' ? $failure : 'noextractabletext'));
         }
         if ($maxchars > 0 && mb_strlen($best->text, 'UTF-8') > $maxchars) {
             $best = new extraction(mb_substr($best->text, 0, $maxchars, 'UTF-8'), $best->pages, $best->extractor);
@@ -132,13 +154,15 @@ final class pdf_reader {
     }
 
     /**
-     * Run the pdftotext binary.
+     * Run the pdftotext binary with a time limit and a cap on the amount of output.
      *
      * @param string $path PDF path.
+     * @param float $deadline Time (microtime) after which the process is killed.
      * @return extraction|null Null when the binary is unavailable or failed.
-     * @throws exception With code "encrypted" for password protected files.
+     * @throws exception With code "encrypted" for password protected files, "timeout" when the
+     *                   time limit is reached and "toolarge" when the output exceeds the cap.
      */
-    private function run_pdftotext(string $path): ?extraction {
+    private function run_pdftotext(string $path, float $deadline): ?extraction {
         if (!function_exists('proc_open')) {
             return null;
         }
@@ -148,11 +172,52 @@ final class pdf_reader {
         if (!is_resource($process)) {
             return null;
         }
-        $stdout = (string) stream_get_contents($pipes[1]);
-        $stderr = (string) stream_get_contents($pipes[2]);
+        stream_set_blocking($pipes[1], false);
+        stream_set_blocking($pipes[2], false);
+        $stdout = '';
+        $stderr = '';
+        $failure = '';
+        $open = [1 => $pipes[1], 2 => $pipes[2]];
+        while ($open) {
+            if (microtime(true) > $deadline) {
+                $failure = 'timeout';
+                break;
+            }
+            $read = array_values($open);
+            $write = null;
+            $except = null;
+            if (@stream_select($read, $write, $except, 0, 200000) === false) {
+                break;
+            }
+            foreach ($read as $stream) {
+                $chunk = fread($stream, 65536);
+                $which = $stream === $pipes[1] ? 1 : 2;
+                if ($chunk === false || ($chunk === '' && feof($stream))) {
+                    unset($open[$which]);
+                } else if ($which === 1) {
+                    $stdout .= $chunk;
+                } else if (strlen($stderr) < 8192) {
+                    $stderr .= $chunk;
+                }
+            }
+            if (strlen($stdout) > $this->maxbytes) {
+                $failure = 'toolarge';
+                break;
+            }
+        }
+        if ($failure !== '') {
+            // Stop the runaway process before reporting the failure.
+            @proc_terminate($process, 9);
+        }
         fclose($pipes[1]);
         fclose($pipes[2]);
         $code = proc_close($process);
+        if ($failure === 'timeout') {
+            throw new exception('timeout', 'pdftotext did not finish in time.');
+        }
+        if ($failure === 'toolarge') {
+            throw new exception('toolarge', 'pdftotext produced more output than allowed.');
+        }
         if ($code !== 0) {
             if (stripos($stderr, 'password') !== false || stripos($stderr, 'encrypt') !== false) {
                 throw new exception('encrypted');

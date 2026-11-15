@@ -56,6 +56,12 @@ class provider implements
             'provider' => 'privacy:metadata:log:provider',
             'timecreated' => 'privacy:metadata:log:timecreated',
         ], 'privacy:metadata:log');
+        $collection->add_database_table('block_aipdfassistant_cache', [
+            'userid' => 'privacy:metadata:cache:userid',
+            'action' => 'privacy:metadata:cache:action',
+            'response' => 'privacy:metadata:cache:response',
+            'timecreated' => 'privacy:metadata:cache:timecreated',
+        ], 'privacy:metadata:cache');
         $collection->add_subsystem_link('core_files', [], 'privacy:metadata:audio');
         $collection->add_external_location_link('aiprovider', [
             'text' => 'privacy:metadata:externalai:text',
@@ -67,7 +73,7 @@ class provider implements
     }
 
     /**
-     * Contexts holding data of a user: the user context (documents, log) and block contexts (audio).
+     * Contexts holding data of a user: the user context (documents, log, cached answers) and block contexts (audio).
      *
      * @param int $userid User id.
      * @return contextlist
@@ -80,8 +86,10 @@ class provider implements
               WHERE ctx.contextlevel = :userlevel
                 AND ctx.instanceid = :userid
                 AND (EXISTS (SELECT 1 FROM {block_aipdfassistant_docs} d WHERE d.userid = :docuser)
-                     OR EXISTS (SELECT 1 FROM {block_aipdfassistant_log} l WHERE l.userid = :loguser))",
-            ['userlevel' => CONTEXT_USER, 'userid' => $userid, 'docuser' => $userid, 'loguser' => $userid]
+                     OR EXISTS (SELECT 1 FROM {block_aipdfassistant_log} l WHERE l.userid = :loguser)
+                     OR EXISTS (SELECT 1 FROM {block_aipdfassistant_cache} c WHERE c.userid = :cacheuser))",
+            ['userlevel' => CONTEXT_USER, 'userid' => $userid, 'docuser' => $userid, 'loguser' => $userid,
+                'cacheuser' => $userid]
         );
         $contextlist->add_from_sql(
             "SELECT DISTINCT f.contextid AS id
@@ -104,7 +112,8 @@ class provider implements
         if ($context->contextlevel == CONTEXT_USER) {
             $userid = (int) $context->instanceid;
             if ($DB->record_exists('block_aipdfassistant_docs', ['userid' => $userid])
-                    || $DB->record_exists('block_aipdfassistant_log', ['userid' => $userid])) {
+                    || $DB->record_exists('block_aipdfassistant_log', ['userid' => $userid])
+                    || $DB->record_exists('block_aipdfassistant_cache', ['userid' => $userid])) {
                 $userlist->add_user($userid);
             }
         } else if ($context->contextlevel == CONTEXT_BLOCK) {
@@ -151,6 +160,17 @@ class provider implements
                 }
                 writer::with_context($context)->export_data(
                     [$plugin, get_string('privacy:path:activity', 'block_aipdfassistant')], (object) ['activity' => $events]);
+                $answers = [];
+                foreach ($DB->get_records('block_aipdfassistant_cache', ['userid' => $userid], 'id ASC') as $row) {
+                    $data = json_decode((string) $row->response, true);
+                    $answers[] = (object) [
+                        'action' => $row->action,
+                        'answer' => is_array($data) && isset($data['text']) ? (string) $data['text'] : (string) $row->response,
+                        'timecreated' => transform::datetime($row->timecreated),
+                    ];
+                }
+                writer::with_context($context)->export_data(
+                    [$plugin, get_string('privacy:path:cache', 'block_aipdfassistant')], (object) ['answers' => $answers]);
             } else if ($context->contextlevel == CONTEXT_BLOCK) {
                 writer::with_context($context)->export_area_files([$plugin], 'block_aipdfassistant', 'audio', $userid);
             }
@@ -206,7 +226,7 @@ class provider implements
     }
 
     /**
-     * Delete documents and log rows of a user.
+     * Delete documents, log rows and cached answers of a user.
      *
      * @param int $userid User id.
      * @return void
@@ -215,5 +235,6 @@ class provider implements
         global $DB;
         $DB->delete_records('block_aipdfassistant_docs', ['userid' => $userid]);
         $DB->delete_records('block_aipdfassistant_log', ['userid' => $userid]);
+        $DB->delete_records('block_aipdfassistant_cache', ['userid' => $userid]);
     }
 }

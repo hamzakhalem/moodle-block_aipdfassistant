@@ -44,9 +44,10 @@ final class array_cache implements cache_interface {
      * @param string $key Key.
      * @param string $value Value.
      * @param string $action Ignored.
+     * @param int $userid Ignored.
      * @return void
      */
-    public function set(string $key, string $value, string $action = ''): void {
+    public function set(string $key, string $value, string $action = '', int $userid = 0): void {
         $this->items[$key] = $value;
     }
 }

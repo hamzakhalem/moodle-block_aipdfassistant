@@ -19,6 +19,7 @@ namespace block_aipdfassistant\local;
 
 use block_aipdfassistant\local\office\docx_reader;
 use block_aipdfassistant\local\pdf\extraction;
+use block_aipdfassistant\local\pdf\native_parser;
 use block_aipdfassistant\local\pdf\pdf_reader;
 
 /**
@@ -32,13 +33,24 @@ final class document_reader {
     /** @var string pdftotext binary for PDF files. */
     private $pdftotext;
 
+    /** @var int Seconds one extraction may take. */
+    private $timeout;
+
+    /** @var int Largest amount of decompressed data accepted, in bytes. */
+    private $maxbytes;
+
     /**
      * Constructor.
      *
      * @param string $pdftotext Path or name of pdftotext (empty to disable).
+     * @param int $timeout Seconds one extraction may take.
+     * @param int $maxbytes Largest amount of decompressed data accepted, in bytes.
      */
-    public function __construct(string $pdftotext = 'pdftotext') {
+    public function __construct(string $pdftotext = 'pdftotext', int $timeout = native_parser::DEFAULT_TIMEOUT,
+            int $maxbytes = native_parser::MAX_TOTAL_BYTES) {
         $this->pdftotext = $pdftotext;
+        $this->timeout = $timeout;
+        $this->maxbytes = $maxbytes;
     }
 
     /**
@@ -80,9 +92,9 @@ final class document_reader {
         }
         switch (self::detect($path)) {
             case 'pdf':
-                return (new pdf_reader($this->pdftotext))->read($path, $maxchars);
+                return (new pdf_reader($this->pdftotext, true, $this->timeout, $this->maxbytes))->read($path, $maxchars);
             case 'docx':
-                return (new docx_reader())->read($path, $maxchars);
+                return (new docx_reader($this->maxbytes))->read($path, $maxchars);
             default:
                 throw new exception('unsupportedtype');
         }

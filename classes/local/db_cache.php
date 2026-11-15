@@ -61,13 +61,15 @@ final class db_cache implements cache_interface {
      * @param string $key Key.
      * @param string $value Value.
      * @param string $action Action name.
+     * @param int $userid User who owns the entry.
      * @return void
      */
-    public function set(string $key, string $value, string $action = ''): void {
+    public function set(string $key, string $value, string $action = '', int $userid = 0): void {
         global $DB;
         $existing = $DB->get_record('block_aipdfassistant_cache', ['cachekey' => $key], 'id');
         $record = (object) [
             'cachekey' => $key,
+            'userid' => max(0, $userid),
             'action' => substr($action, 0, 20),
             'response' => $value,
             'timecreated' => time(),

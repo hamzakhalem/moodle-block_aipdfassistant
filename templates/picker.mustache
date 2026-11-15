@@ -1,0 +1,80 @@
+{{!
+    This file is part of Moodle - http://moodle.org/
+
+    Moodle is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    Moodle is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+}}
+{{!
+    @template block_aipdfassistant/picker
+
+    Content of the document picker: recent documents and course files, or a status message.
+
+    Data attributes required for JS:
+    * data-docid, data-cmid
+
+    Example context (json):
+    {
+        "loading": false,
+        "error": false,
+        "empty": false,
+        "hasrecent": true,
+        "recent": [
+            {"id": 7, "name": "Chapter 3.pdf", "pages": 12, "single": false}
+        ],
+        "hascourse": true,
+        "course": [
+            {"cmid": 42, "name": "Syllabus.pdf", "meta": "Week 1 · 1.2 MB"}
+        ]
+    }
+}}
+{{#loading}}
+    <p class="bpa-picker-empty">{{#str}}js_loading, block_aipdfassistant{{/str}}</p>
+{{/loading}}
+{{#error}}
+    <p class="bpa-picker-empty">{{#str}}js_errorGeneric, block_aipdfassistant{{/str}}</p>
+{{/error}}
+{{#empty}}
+    <p class="bpa-picker-empty">{{#str}}js_noDocs, block_aipdfassistant{{/str}}</p>
+{{/empty}}
+{{#hasrecent}}
+    <h5>{{#str}}js_recent, block_aipdfassistant{{/str}}</h5>
+    <ul>
+        {{#recent}}
+        <li>
+            <button type="button" class="bpa-item" data-docid="{{id}}">
+                <span class="bpa-item-icon" data-icon="file"></span>
+                <span class="bpa-item-text">
+                    <strong dir="auto">{{name}}</strong>
+                    <small>{{#single}}{{#str}}js_page, block_aipdfassistant{{/str}}{{/single}}{{^single}}{{#str}}js_pages, block_aipdfassistant, {{pages}}{{/str}}{{/single}}</small>
+                </span>
+            </button>
+        </li>
+        {{/recent}}
+    </ul>
+{{/hasrecent}}
+{{#hascourse}}
+    <h5>{{#str}}js_courseFiles, block_aipdfassistant{{/str}}</h5>
+    <ul>
+        {{#course}}
+        <li>
+            <button type="button" class="bpa-item" data-cmid="{{cmid}}">
+                <span class="bpa-item-icon" data-icon="file"></span>
+                <span class="bpa-item-text">
+                    <strong dir="auto">{{name}}</strong>
+                    <small dir="auto">{{meta}}</small>
+                </span>
+            </button>
+        </li>
+        {{/course}}
+    </ul>
+{{/hascourse}}

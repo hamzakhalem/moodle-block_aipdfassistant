@@ -41,6 +41,54 @@ final class docx_reader {
     /** Largest document.xml accepted after decompression (protects against zip bombs). */
     const MAX_XML = 31457280;
 
+    /** Largest docProps/app.xml read (it only holds the page count). */
+    const MAX_APP_XML = 262144;
+
+    /** @var int Largest amount of decompressed data accepted, in bytes. */
+    private $maxbytes;
+
+    /**
+     * Constructor.
+     *
+     * @param int $maxbytes Largest amount of decompressed data accepted, in bytes (0 = default).
+     */
+    public function __construct(int $maxbytes = 0) {
+        $this->maxbytes = $maxbytes > 0 ? min($maxbytes, self::MAX_XML) : self::MAX_XML;
+    }
+
+    /**
+     * Read one entry of the archive, stopping as soon as it exceeds the limit.
+     *
+     * The size announced in the zip directory is not trusted: it can be forged, so the data is
+     * measured while it is decompressed.
+     *
+     * @param \ZipArchive $zip Open archive.
+     * @param string $name Entry name.
+     * @param int $limit Largest size accepted in bytes.
+     * @return string|null Null when the entry does not exist.
+     * @throws exception With code "toolarge" when the entry expands beyond the limit.
+     */
+    private function read_entry(\ZipArchive $zip, string $name, int $limit): ?string {
+        $stream = $zip->getStream($name);
+        if (!is_resource($stream)) {
+            return null;
+        }
+        $data = '';
+        while (!feof($stream)) {
+            $chunk = fread($stream, 65536);
+            if ($chunk === false) {
+                break;
+            }
+            $data .= $chunk;
+            if (strlen($data) > $limit) {
+                fclose($stream);
+                throw new exception('toolarge', 'Decompressed Word data exceeds the allowed size.');
+            }
+        }
+        fclose($stream);
+        return $data;
+    }
+
     /**
      * Extract the text of a .docx file.
      *
@@ -65,11 +113,15 @@ final class docx_reader {
             if ($stat === false) {
                 throw new exception('unsupportedtype');
             }
-            if ($stat['size'] > self::MAX_XML) {
+            if ($stat['size'] > $this->maxbytes) {
                 throw new exception('toolarge');
             }
-            $xml = $zip->getFromName('word/document.xml');
-            $app = $zip->getFromName('docProps/app.xml');
+            $xml = $this->read_entry($zip, 'word/document.xml', $this->maxbytes);
+            try {
+                $app = $this->read_entry($zip, 'docProps/app.xml', self::MAX_APP_XML);
+            } catch (exception $e) {
+                $app = null; // Only the page count is lost.
+            }
         } finally {
             $zip->close();
         }

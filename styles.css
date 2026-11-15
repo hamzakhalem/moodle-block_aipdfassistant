@@ -1019,7 +1019,7 @@
     box-shadow: 0 0 0 3px rgba(11, 107, 79, 0.16);
 }
 
-.bpa .bpa-input {
+.bpa-input {
     flex: 1;
     min-width: 0;
     max-height: 140px;
@@ -1028,14 +1028,10 @@
     resize: none;
     background: transparent;
     border: 0;
-    box-shadow: none;
     outline: 0;
 }
 
-.bpa .bpa-input:focus,
-.bpa .bpa-input:focus-visible {
-    border: 0;
-    box-shadow: none;
+.bpa-input:focus-visible {
     outline: 0;
 }
 

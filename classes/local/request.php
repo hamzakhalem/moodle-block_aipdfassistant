@@ -46,6 +46,9 @@ final class request {
     /** @var array Previous turns: [['role' => 'user'|'assistant', 'content' => string], ...]. */
     public $history = [];
 
+    /** @var int Id of the user who made the request (0 when unknown). */
+    public $userid = 0;
+
     /** @var string Interface language code of the user (ar, fr, en, ...). */
     public $uilang = 'en';
 

@@ -145,6 +145,79 @@ final class pdf_test extends \basic_testcase {
     }
 
     /**
+     * A tiny compressed stream that expands to far more than the limit is refused ("decompression bomb").
+     */
+    public function test_native_refuses_decompression_bomb(): void {
+        $bomb = gzcompress(str_repeat('BT (x) Tj ET ', 400000)); // About 5 MB once inflated.
+        $data = "%PDF-1.4\n1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n"
+            . "2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n"
+            . "3 0 obj\n<< /Type /Page /Parent 2 0 R /Contents 4 0 R >>\nendobj\n"
+            . "4 0 obj\n<< /Filter /FlateDecode /Length " . strlen($bomb) . " >>\nstream\n" . $bomb . "\nendstream\nendobj\n"
+            . "trailer\n<< /Root 1 0 R >>\n%%EOF\n";
+        try {
+            (new native_parser(30, 1048576))->extract($data); // Limit: 1 MB in total.
+            $this->fail('A stream expanding beyond the limit must be refused.');
+        } catch (exception $e) {
+            $this->assertSame('toolarge', $e->errorcode);
+        }
+        // The same file is fine with a generous limit.
+        [, $pages] = (new native_parser(30, 64 * 1048576))->extract($data);
+        $this->assertSame(1, $pages);
+    }
+
+    /**
+     * An extractor that does not finish in time is stopped and reported as "timeout".
+     */
+    public function test_reader_stops_slow_pdftotext(): void {
+        if (!function_exists('proc_open') || DIRECTORY_SEPARATOR === '\\') {
+            $this->markTestSkipped('Needs proc_open and a POSIX shell.');
+        }
+        $script = tempnam(sys_get_temp_dir(), 'bpa');
+        file_put_contents($script, "#!/bin/sh\nsleep 30\n");
+        chmod($script, 0755);
+        $path = tempnam(sys_get_temp_dir(), 'bpa');
+        file_put_contents($path, sample::minimal(['Some text']));
+        try {
+            $started = microtime(true);
+            try {
+                (new pdf_reader($script, true, 1))->read($path);
+                $this->fail('The slow extractor must be stopped.');
+            } catch (exception $e) {
+                $this->assertSame('timeout', $e->errorcode);
+            }
+            $this->assertLessThan(10, microtime(true) - $started);
+        } finally {
+            unlink($script);
+            unlink($path);
+        }
+    }
+
+    /**
+     * An extractor that prints more than the allowed amount is stopped and reported as "toolarge".
+     */
+    public function test_reader_caps_pdftotext_output(): void {
+        if (!function_exists('proc_open') || DIRECTORY_SEPARATOR === '\\') {
+            $this->markTestSkipped('Needs proc_open and a POSIX shell.');
+        }
+        $script = tempnam(sys_get_temp_dir(), 'bpa');
+        file_put_contents($script, "#!/bin/sh\nyes 'endless text' | head -c 20000000\n");
+        chmod($script, 0755);
+        $path = tempnam(sys_get_temp_dir(), 'bpa');
+        file_put_contents($path, sample::minimal(['Some text']));
+        try {
+            try {
+                (new pdf_reader($script, true, 20, 1048576))->read($path);
+                $this->fail('Output beyond the cap must be refused.');
+            } catch (exception $e) {
+                $this->assertSame('toolarge', $e->errorcode);
+            }
+        } finally {
+            unlink($script);
+            unlink($path);
+        }
+    }
+
+    /**
      * Error code raised when reading a path.
      *
      * @param string $path Path.

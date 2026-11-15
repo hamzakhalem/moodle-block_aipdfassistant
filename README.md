@@ -18,6 +18,19 @@ Moodle **4.2+**, PHP 7.4+ (mbstring, zlib, zip; intl recommended). Poppler `pdft
 ## Install
 Copy this folder to `blocks/aipdfassistant` (Moodle 5.1+: `public/blocks/aipdfassistant`) or upload the zip in *Site administration > Plugins > Install plugins*, then run the upgrade.
 
+## Provider accounts (read this first)
+The plugin contains **no AI of its own**. It sends the text of the attached document and the user's questions to an AI service **you** choose and pay for, so you need an account with that provider and an API key:
+
+| Provider | Where to get access | Notes |
+|---|---|---|
+| OpenAI | platform.openai.com (add billing credit, create an API key) | A ChatGPT subscription does **not** include API access. |
+| Claude (Anthropic) | console.anthropic.com | Add credit, create an API key. No voice API. |
+| Google Gemini | aistudio.google.com/apikey | Limited free tier; paid usage billed by Google. |
+| DeepSeek | platform.deepseek.com | Add credit, create an API key. No voice API. |
+| Ollama / any OpenAI-compatible server | none (run it yourself, see ollama.com) | Enter its address as *Base URL*; allow the host in *HTTP security* if it is local or private. |
+
+**What is unavailable until a provider is configured:** the block shows a notice instead of the chat (administrators get a link to the settings), so nothing can be summarized, explained, translated, quizzed or answered, and nothing is sent to any provider. The *Listen* button stays hidden until a voice is chosen; the free browser voice needs no account. The same explanation is shown at the top of the plugin's settings page.
+
 ## Configure (Site administration > Plugins > Blocks > AI PDF Assistant)
 1. Choose the **provider**, paste the **API key**, optionally set the **model** (defaults are only suggestions; model names change often).
 2. *Voice*: choose a provider (Claude and DeepSeek have no voice API: pair them with OpenAI/Gemini/ElevenLabs, or use the browser voice) and **male/female**.
@@ -38,7 +51,11 @@ Ollama or any server on `localhost`/a private IP must first be allowed in *Site 
 - Default model names (OpenAI `gpt-5-mini`, Claude `claude-sonnet-5-5`, Gemini `gemini-flash-latest`, Gemini voice `gemini-3.8-flash-tts`, OpenAI voice `gpt-4o-mini-tts`) may change: edit them in the settings.
 - **The PHP code was written without a PHP runtime available and has not been executed against a live Moodle.** Run the PHPUnit suite and the connection test before production use.
 
-## Privacy
-PDF text and chat messages are sent to the provider you configure; answers read aloud are sent to the voice provider. Tell your users. Documents and audio are deleted after the retention period (default 30 days).
+## Safety limits for uploaded files
+Reading a file is bounded so that a damaged or hostile document cannot exhaust the server: `pdftotext` is killed after the **time limit** (default 30 s) and its output is capped; the built-in PDF reader inflates compressed streams in small slices and refuses a file whose streams would expand beyond the **decompressed size limit** (default 128 MB in total, 32 MB per stream), with the same time limit; Word files are measured while they are decompressed. Both limits are admin settings (*Documents* section). Such files fail with a clear message instead of hanging the request.
 
-License: GNU GPL v3 or later.
+## Privacy
+PDF text and chat messages are sent to the provider you configure; answers read aloud are sent to the voice provider. Tell your users. Documents, cached answers and audio are deleted after the retention period (default 30 days). Cached answers belong to the user who asked for them and are included in the Privacy API export and deletion, together with documents and the usage log.
+
+## License
+GNU General Public License v3 or later, see the [LICENSE](LICENSE) file. Every source file carries the standard Moodle GPL header.
