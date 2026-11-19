@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Moodle marketplace page
+    url: https://marketplace.moodle.com/plugins/block_aipdfassistant
+    about: Release notes and installation from the marketplace.

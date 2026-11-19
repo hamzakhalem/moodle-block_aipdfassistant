@@ -1,0 +1,361 @@
+{
+  "project": "block_aipdfassistant",
+  "title": "AI PDF Assistant - Moodle block",
+  "repository": "https://github.com/hamzakhalem/moodle-block_aipdfassistant",
+  "contact": "https://hamzakhalem.pages.dev",
+  "moodle_min_version": "4.2",
+  "updated": "2026-11-19",
+  "status_summary": {
+    "implemented": [
+      "Chat block with PDF and Word (.docx) attachment and course-file picker",
+      "Actions: summarize, explain, translate (9 languages), quiz, file name, listen",
+      "Providers: OpenAI, Claude, Gemini, DeepSeek, Ollama, any OpenAI-compatible server",
+      "TTS: OpenAI, Gemini, ElevenLabs, browser voice (admin picks male or female)",
+      "Multilingual intent detection (Arabic, Darija, French, English)",
+      "Map-reduce summarization, passage retrieval, answer cache, rate limits",
+      "Native PHP PDF parser (with pdftotext first) and DOCX reader",
+      "RTL support, safe Markdown renderer, scrollable action strip",
+      "Privacy API, scheduled cleanup task, capabilities, EN/AR/FR language packs",
+      "Demo video, 30 s promo, LinkedIn post, directory description"
+    ],
+    "verified": [
+      "UI end-to-end tests (30/30) and Markdown tests (15/15) in Chromium/Node",
+      "Intent and PDF logic through Python prototypes"
+    ],
+    "not_verified": [
+      "PHP code has never been executed: no PHP in the build environment",
+      "Never installed on a real Moodle instance"
+    ]
+  },
+  "roadmap": [
+    {
+      "id": "P0",
+      "name": "Validation on a real Moodle (blocker before release)",
+      "priority": "critical",
+      "tasks": [
+        {
+          "id": "P0-1",
+          "task": "Install on a clean Moodle 4.2, 4.5 and latest, fix any install/upgrade errors",
+          "effort": "S",
+          "status": "todo"
+        },
+        {
+          "id": "P0-2",
+          "task": "Run PHPUnit suite (intent, chunker, providers, tts, pdf, docx, assistant, external)",
+          "effort": "S",
+          "status": "todo"
+        },
+        {
+          "id": "P0-3",
+          "task": "Run Behat scenario tests/behat/use_block.feature",
+          "effort": "S",
+          "status": "todo"
+        },
+        {
+          "id": "P0-4",
+          "task": "Run moodle-plugin-ci: phplint, phpcs (moodle standard), phpdoc, validate, savepoints, mustache, grunt, phpunit, behat",
+          "effort": "M",
+          "status": "todo"
+        },
+        {
+          "id": "P0-5",
+          "task": "Rebuild AMD with grunt amd and commit amd/build and sourcemaps",
+          "effort": "S",
+          "status": "todo"
+        },
+        {
+          "id": "P0-6",
+          "task": "Enable .github/workflows/ci.yml (moodle-plugin-ci matrix) and fix whatever it reports",
+          "effort": "S",
+          "status": "todo"
+        },
+        {
+          "id": "P0-7",
+          "task": "Test with real API keys for each provider and each TTS engine",
+          "effort": "M",
+          "status": "todo"
+        },
+        {
+          "id": "P0-8",
+          "task": "Test with real PDFs: scanned, Arabic, large (200+ pages), encrypted, corrupted",
+          "effort": "M",
+          "status": "todo"
+        }
+      ]
+    },
+    {
+      "id": "P1",
+      "name": "Publishing",
+      "priority": "high",
+      "tasks": [
+        {
+          "id": "P1-1",
+          "task": "Moodle plugin directory review passed (MMR-553); plugin published on the marketplace",
+          "effort": "M",
+          "status": "done"
+        },
+        {
+          "id": "P1-2",
+          "task": "Tag v0.1.1 on GitHub with release notes (RELEASE_NOTES_v0.1.1.md)",
+          "effort": "S",
+          "status": "todo"
+        },
+        {
+          "id": "P1-3",
+          "task": "README screenshots (done in this update), issue templates, CONTRIBUTING and SECURITY (done); add GIF",
+          "effort": "S",
+          "status": "todo"
+        },
+        {
+          "id": "P1-4",
+          "task": "Collect feedback from testers in GitHub Issues and triage with labels",
+          "effort": "ongoing",
+          "status": "todo"
+        },
+        {
+          "id": "P1-5",
+          "task": "Publish launch post on LinkedIn with marketplace link and promo video",
+          "effort": "S",
+          "status": "todo"
+        }
+      ]
+    },
+    {
+      "id": "P2",
+      "name": "Document handling",
+      "priority": "medium",
+      "tasks": [
+        {
+          "id": "P2-1",
+          "task": "OCR for scanned PDFs (Tesseract or vision-capable provider) with Arabic support",
+          "effort": "L",
+          "status": "idea"
+        },
+        {
+          "id": "P2-2",
+          "task": "Improve native PDF parser: more font encodings, CID fonts, ligatures, Arabic shaping and reading order",
+          "effort": "L",
+          "status": "idea"
+        },
+        {
+          "id": "P2-3",
+          "task": "PowerPoint (.pptx) support",
+          "effort": "M",
+          "status": "idea"
+        },
+        {
+          "id": "P2-4",
+          "task": "Excel (.xlsx), plain text and Markdown support",
+          "effort": "M",
+          "status": "idea"
+        },
+        {
+          "id": "P2-5",
+          "task": "Show page references and citations in answers (jump to page)",
+          "effort": "M",
+          "status": "idea"
+        },
+        {
+          "id": "P2-6",
+          "task": "Chat with several documents or a whole course at once",
+          "effort": "L",
+          "status": "idea"
+        },
+        {
+          "id": "P2-7",
+          "task": "Embeddings and vector search for large documents instead of keyword retrieval",
+          "effort": "L",
+          "status": "idea"
+        }
+      ]
+    },
+    {
+      "id": "P3",
+      "name": "Learning features",
+      "priority": "medium",
+      "tasks": [
+        {
+          "id": "P3-1",
+          "task": "Export generated quiz to Moodle question bank (GIFT or XML) and as H5P",
+          "effort": "M",
+          "status": "idea"
+        },
+        {
+          "id": "P3-2",
+          "task": "Flashcards and study guide generation",
+          "effort": "M",
+          "status": "idea"
+        },
+        {
+          "id": "P3-3",
+          "task": "Interactive quiz mode in the chat with scoring and explanations",
+          "effort": "M",
+          "status": "idea"
+        },
+        {
+          "id": "P3-4",
+          "task": "Teacher view: pre-approved documents, per-course prompts and tone, reading level",
+          "effort": "M",
+          "status": "idea"
+        },
+        {
+          "id": "P3-5",
+          "task": "Voice input (speech-to-text) in Arabic, Darija, French, English",
+          "effort": "M",
+          "status": "idea"
+        },
+        {
+          "id": "P3-6",
+          "task": "Save and share conversations, export summary as PDF or Word",
+          "effort": "M",
+          "status": "idea"
+        }
+      ]
+    },
+    {
+      "id": "P4",
+      "name": "Admin, cost and safety",
+      "priority": "medium",
+      "tasks": [
+        {
+          "id": "P4-1",
+          "task": "Usage and cost dashboard per course, user and provider",
+          "effort": "M",
+          "status": "idea"
+        },
+        {
+          "id": "P4-2",
+          "task": "Budget caps and quotas per role or cohort, with alerts",
+          "effort": "M",
+          "status": "idea"
+        },
+        {
+          "id": "P4-3",
+          "task": "Encrypt stored API keys, key rotation, per-course provider override",
+          "effort": "M",
+          "status": "idea"
+        },
+        {
+          "id": "P4-4",
+          "task": "Provider fallback chain when a provider fails or is rate-limited",
+          "effort": "S",
+          "status": "idea"
+        },
+        {
+          "id": "P4-5",
+          "task": "Content safety, prompt-injection hardening for uploaded documents, audit log",
+          "effort": "M",
+          "status": "idea"
+        },
+        {
+          "id": "P4-6",
+          "task": "Privacy review: retention settings, GDPR export/delete tested on real data, data-processing notice",
+          "effort": "M",
+          "status": "todo"
+        },
+        {
+          "id": "P4-7",
+          "task": "Streaming responses and background processing for long documents",
+          "effort": "L",
+          "status": "idea"
+        }
+      ]
+    },
+    {
+      "id": "P5",
+      "name": "Quality, accessibility and i18n",
+      "priority": "medium",
+      "tasks": [
+        {
+          "id": "P5-1",
+          "task": "Accessibility audit (WCAG 2.1 AA): keyboard, screen reader, contrast, focus order",
+          "effort": "M",
+          "status": "todo"
+        },
+        {
+          "id": "P5-2",
+          "task": "Native-speaker review of Arabic and French language strings, add more languages",
+          "effort": "S",
+          "status": "todo"
+        },
+        {
+          "id": "P5-3",
+          "task": "Mobile app (Moodle App) compatibility and responsive checks",
+          "effort": "M",
+          "status": "idea"
+        },
+        {
+          "id": "P5-4",
+          "task": "Performance tests with large files and concurrent users",
+          "effort": "M",
+          "status": "idea"
+        },
+        {
+          "id": "P5-5",
+          "task": "Compatibility with dark themes and common third-party themes (Boost, Moove, Edwiser)",
+          "effort": "S",
+          "status": "idea"
+        }
+      ]
+    },
+    {
+      "id": "P6",
+      "name": "Promo assets",
+      "priority": "low",
+      "tasks": [
+        {
+          "id": "P6-1",
+          "task": "Re-record the demo on a real Moodle with real answers and cleaner footage (720p source limits zoom quality)",
+          "effort": "M",
+          "status": "todo"
+        },
+        {
+          "id": "P6-2",
+          "task": "Rebuild the full motion-graphics promo (story B) with Remotion or HyperFrames",
+          "effort": "L",
+          "status": "idea"
+        },
+        {
+          "id": "P6-3",
+          "task": "Real voice-over (human or ElevenLabs/OpenAI) using voiceover-script-timed.txt; Arabic version",
+          "effort": "S",
+          "status": "idea"
+        },
+        {
+          "id": "P6-4",
+          "task": "Vertical 9:16 cut for LinkedIn, Reels and Shorts",
+          "effort": "S",
+          "status": "idea"
+        }
+      ]
+    }
+  ],
+  "notes": {
+    "effort_scale": "S = under 1 day, M = 1 to 3 days, L = more than 3 days",
+    "status_values": [
+      "todo",
+      "waiting",
+      "idea",
+      "in_progress",
+      "done"
+    ],
+    "recommended_order": [
+      "P0-6",
+      "P0-1",
+      "P0-2",
+      "P0-3",
+      "P1-4",
+      "P4-6",
+      "P5-1",
+      "P3-1",
+      "P2-1",
+      "P2-6"
+    ],
+    "files": {
+      "plugin_zip": "block_aipdfassistant.zip",
+      "promo_build_script": "promo-build/build_promo.py",
+      "voiceover_script": "voiceover-script-timed.txt"
+    }
+  },
+  "marketplace": "https://marketplace.moodle.com/plugins/block_aipdfassistant"
+}

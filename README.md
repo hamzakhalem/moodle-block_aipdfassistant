@@ -1,4 +1,14 @@
+<p align="center"><img src="docs/images/icon.png" width="120" alt="AI PDF Assistant icon"></p>
+
 # AI PDF Assistant (block_aipdfassistant)
+
+[![Moodle marketplace](https://img.shields.io/badge/Moodle-marketplace-orange)](https://marketplace.moodle.com/plugins/block_aipdfassistant)
+[![License: GPL v3](https://img.shields.io/badge/license-GPL%20v3%2B-blue)](LICENSE)
+![Moodle 4.2+](https://img.shields.io/badge/Moodle-4.2%2B-green)
+
+**Install it from the [Moodle marketplace](https://marketplace.moodle.com/plugins/block_aipdfassistant).**
+
+![AI PDF Assistant feature overview](docs/images/feature-grid.png)
 
 A Moodle **block** where students and teachers attach a **PDF or Word (.docx)** file and then chat with it: **summarize, explain, translate, quiz, get the file name, or listen to the answer**. Everything goes through the API of the AI provider the administrator chooses.
 
@@ -12,11 +22,18 @@ A Moodle **block** where students and teachers attach a **PDF or Word (.docx)** 
 - **Word (.docx) reading:** built in (PHP zip + DOM, no library): headings, lists, tables, text boxes; tracked deletions are skipped. Old binary `.doc` files must be saved as `.docx`.
 - **PDF reading:** `pdftotext` (Poppler) when installed, otherwise a built-in PHP parser (text PDFs, Flate/ASCII filters, ToUnicode fonts, object streams). **No OCR**: scanned PDFs are reported as unreadable.
 
+## Screenshots
+| Summary | Translate | Quiz | Arabic (RTL) |
+|---|---|---|---|
+| <img src="docs/images/summary.png" width="200"> | <img src="docs/images/translate.png" width="200"> | <img src="docs/images/quiz.png" width="200"> | <img src="docs/images/arabic-rtl.png" width="200"> |
+
+*Screenshots come from a test page with sample data.*
+
 ## Requirements
 Moodle **4.2+**, PHP 7.4+ (mbstring, zlib, zip; intl recommended). Poppler `pdftotext` is optional but gives the best text.
 
 ## Install
-Copy this folder to `blocks/aipdfassistant` (Moodle 5.1+: `public/blocks/aipdfassistant`) or upload the zip in *Site administration > Plugins > Install plugins*, then run the upgrade.
+Easiest: install it from the [Moodle marketplace](https://marketplace.moodle.com/plugins/block_aipdfassistant). Manually: copy this folder to `blocks/aipdfassistant` (Moodle 5.1+: `public/blocks/aipdfassistant`) or upload the zip in *Site administration > Plugins > Install plugins*, then run the upgrade.
 
 ## Provider accounts (read this first)
 The plugin contains **no AI of its own**. It sends the text of the attached document and the user's questions to an AI service **you** choose and pay for, so you need an account with that provider and an API key:
@@ -49,7 +66,7 @@ Ollama or any server on `localhost`/a private IP must first be allowed in *Site 
 ## Known limitations
 - No OCR for scanned PDFs. Not exposed to the Moodle mobile app.
 - Default model names (OpenAI `gpt-5-mini`, Claude `claude-sonnet-5-5`, Gemini `gemini-flash-latest`, Gemini voice `gemini-3.8-flash-tts`, OpenAI voice `gpt-4o-mini-tts`) may change: edit them in the settings.
-- **The PHP code was written without a PHP runtime available and has not been executed against a live Moodle.** Run the PHPUnit suite and the connection test before production use.
+- **Testing status:** the plugin passed the Moodle plugin directory review. The PDF/Word safety limits, intent detection and parsers were exercised with standalone PHP runs outside Moodle, and the UI with browser end-to-end tests. The full PHPUnit and Behat suites are run by the CI workflow in `.github/workflows/ci.yml`; please report any failure you see on your own Moodle, and run the connection test page before production use.
 
 ## Safety limits for uploaded files
 Reading a file is bounded so that a damaged or hostile document cannot exhaust the server: `pdftotext` is killed after the **time limit** (default 30 s) and its output is capped; the built-in PDF reader inflates compressed streams in small slices and refuses a file whose streams would expand beyond the **decompressed size limit** (default 128 MB in total, 32 MB per stream), with the same time limit; Word files are measured while they are decompressed. Both limits are admin settings (*Documents* section). Such files fail with a clear message instead of hanging the request.
