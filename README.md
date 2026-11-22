@@ -6,7 +6,9 @@
 [![License: GPL v3](https://img.shields.io/badge/license-GPL%20v3%2B-blue)](LICENSE)
 ![Moodle 4.2+](https://img.shields.io/badge/Moodle-4.2%2B-green)
 
-**Install it from the [Moodle marketplace](https://marketplace.moodle.com/plugins/block_aipdfassistant).**
+**Install it from the [Moodle marketplace](https://marketplace.moodle.com/plugins/block_aipdfassistant)** or download the zip from [Releases](https://github.com/hamzakhalem/moodle-block_aipdfassistant/releases/latest).
+
+> ⭐ If this plugin saves you or your students time, a star on GitHub helps other Moodle admins find it.
 
 ![AI PDF Assistant feature overview](docs/images/feature-grid.png)
 
@@ -33,7 +35,7 @@ A Moodle **block** where students and teachers attach a **PDF or Word (.docx)** 
 Moodle **4.2+**, PHP 7.4+ (mbstring, zlib, zip; intl recommended). Poppler `pdftotext` is optional but gives the best text.
 
 ## Install
-Easiest: install it from the [Moodle marketplace](https://marketplace.moodle.com/plugins/block_aipdfassistant). Manually: copy this folder to `blocks/aipdfassistant` (Moodle 5.1+: `public/blocks/aipdfassistant`) or upload the zip in *Site administration > Plugins > Install plugins*, then run the upgrade.
+Easiest: install it from the [Moodle marketplace](https://marketplace.moodle.com/plugins/block_aipdfassistant). Manually: copy this folder to `blocks/aipdfassistant` (Moodle 5.1+: `public/blocks/aipdfassistant`) or upload the zip from [Releases](https://github.com/hamzakhalem/moodle-block_aipdfassistant/releases/latest) in *Site administration > Plugins > Install plugins*, then run the upgrade.
 
 ## Provider accounts (read this first)
 The plugin contains **no AI of its own**. It sends the text of the attached document and the user's questions to an AI service **you** choose and pay for, so you need an account with that provider and an API key:
